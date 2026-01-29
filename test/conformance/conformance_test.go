@@ -75,6 +75,7 @@ func TestConformance(t *testing.T) {
 		options.SkipTests = append(options.SkipTests, string(features.GatewayStaticAddressesFeature.Name))
 	}
 	options.Debug = true
+	options.CleanupBaseResources = false
 
 	t.Logf("Running conformance tests with\nprofiles: %+v\n", profiles)
 	conformance.RunConformanceWithOptions(t, options)
