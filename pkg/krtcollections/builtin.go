@@ -422,7 +422,7 @@ func translateScheme(out *envoyroutev3.RedirectAction, scheme *string) {
 	}
 }
 
-func translatePort(scheme string, port *gwv1.PortNumber) uint32 {
+func translatePort(port *gwv1.PortNumber) uint32 {
 	// If port is explicitly provided, use it regardless of scheme
 	if port != nil {
 		return uint32(*port) //nolint:gosec // G115: Gateway API PortNumber is int32, always valid port range
@@ -859,7 +859,7 @@ func convertRequestRedirectIR(
 		return nil, err
 	}
 
-	portRedirect := translatePort(ptr.Deref(f.Scheme, ""), f.Port)
+	portRedirect := translatePort(f.Port)
 	redir := &envoyroutev3.RedirectAction{
 		HostRedirect: translateHostname(f.Hostname),
 		ResponseCode: statusCode,
