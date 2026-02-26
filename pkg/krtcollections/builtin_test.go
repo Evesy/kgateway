@@ -835,6 +835,18 @@ func TestRequestRedirect(t *testing.T) {
 			},
 			expectedNeedsListener: true,
 		},
+		{
+			name: "scheme and port nil with listener port 80 omits default port",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Scheme: nil,
+				Port:   nil,
+			},
+			listenerPort: 80,
+			expectedRedirect: &envoyroutev3.RedirectAction{
+				ResponseCode: envoyroutev3.RedirectAction_FOUND,
+			},
+			expectedNeedsListener: true,
+		},
 	}
 
 	for _, tt := range tests {
