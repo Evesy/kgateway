@@ -427,16 +427,8 @@ func translatePort(scheme string, port *gwv1.PortNumber) uint32 {
 	if port != nil {
 		return uint32(*port) //nolint:gosec // G115: Gateway API PortNumber is int32, always valid port range
 	}
-	// Otherwise, use default port for the scheme
-	switch strings.ToLower(scheme) {
-	case "http":
-		return 80
-	case "https":
-		return 443
-	default:
-		// Scheme is empty and port is nil - needs listener port (return 0 as sentinel)
-		return 0
-	}
+
+	return 0
 }
 
 func translateHostname(hostname *gwv1.PreciseHostname) string {
@@ -899,6 +891,9 @@ func applyRedirectPortPostProcessing(
 	}
 	redirect := outputRoute.GetRedirect()
 	if redirect != nil && redirect.GetPortRedirect() == 0 {
+		if pCtx.ListenerPort == 80 || pCtx.ListenerPort == 443 {
+			return
+		}
 		redirect.PortRedirect = pCtx.ListenerPort
 	}
 }

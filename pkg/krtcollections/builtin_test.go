@@ -696,7 +696,6 @@ func TestRequestRedirect(t *testing.T) {
 				SchemeRewriteSpecifier: &envoyroutev3.RedirectAction_SchemeRedirect{
 					SchemeRedirect: "http",
 				},
-				PortRedirect: 80,
 				ResponseCode: envoyroutev3.RedirectAction_FOUND,
 			},
 		},
@@ -711,7 +710,6 @@ func TestRequestRedirect(t *testing.T) {
 				SchemeRewriteSpecifier: &envoyroutev3.RedirectAction_HttpsRedirect{
 					HttpsRedirect: true,
 				},
-				PortRedirect: 443,
 				ResponseCode: envoyroutev3.RedirectAction_FOUND,
 			},
 		},
@@ -821,6 +819,18 @@ func TestRequestRedirect(t *testing.T) {
 					PrefixRewrite: "/api",
 				},
 				PortRedirect: 8080,
+				ResponseCode: envoyroutev3.RedirectAction_FOUND,
+			},
+			expectedNeedsListener: true,
+		},
+		{
+			name: "scheme and port nil with listener port 443 omits default port",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Scheme: nil,
+				Port:   nil,
+			},
+			listenerPort: 443,
+			expectedRedirect: &envoyroutev3.RedirectAction{
 				ResponseCode: envoyroutev3.RedirectAction_FOUND,
 			},
 			expectedNeedsListener: true,
