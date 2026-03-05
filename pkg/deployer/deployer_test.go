@@ -40,7 +40,6 @@ import (
 	"github.com/kgateway-dev/kgateway/v2/pkg/kgateway/extensions2/plugins/listenerpolicy"
 	"github.com/kgateway-dev/kgateway/v2/pkg/kgateway/wellknown"
 	"github.com/kgateway-dev/kgateway/v2/pkg/kgateway/xds"
-
 	// TODO BML tests in this suite fail if this no-op import is not imported first.
 	//
 	// I know, I know, you're reading this, and you're skeptical. I can feel it.
@@ -113,10 +112,10 @@ func (objs *clientObjects) findService(name string) *corev1.Service {
 	return nil
 }
 
-func (objs *clientObjects) findConfigMap(namespace, name string) *corev1.ConfigMap {
+func (objs *clientObjects) findConfigMap(name string) *corev1.ConfigMap {
 	for _, obj := range *objs {
 		if cm, ok := obj.(*corev1.ConfigMap); ok {
-			if cm.Name == name && cm.Namespace == namespace {
+			if cm.Name == name && cm.Namespace == defaultNamespace {
 				return cm
 			}
 		}
@@ -124,8 +123,8 @@ func (objs *clientObjects) findConfigMap(namespace, name string) *corev1.ConfigM
 	return nil
 }
 
-func (objs *clientObjects) getEnvoyConfig(namespace, name string) *envoybootstrapv3.Bootstrap {
-	cm := objs.findConfigMap(namespace, name).Data
+func (objs *clientObjects) getEnvoyConfig(name string) *envoybootstrapv3.Bootstrap {
+	cm := objs.findConfigMap(name).Data
 	var bootstrapCfg envoybootstrapv3.Bootstrap
 	err := unmarshalYaml([]byte(cm[envoyDataKey]), &bootstrapCfg)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -377,7 +376,7 @@ var _ = Describe("Deployer", func() {
 			Expect(objs).To(HaveLen(4))
 			Expect(objs.findDeployment(gw.Name)).ToNot(BeNil())
 			Expect(objs.findService(gw.Name)).ToNot(BeNil())
-			Expect(objs.findConfigMap(defaultNamespace, gw.Name)).ToNot(BeNil())
+			Expect(objs.findConfigMap(gw.Name)).ToNot(BeNil())
 			Expect(objs.findServiceAccount(gw.Name)).ToNot(BeNil())
 		})
 	})
@@ -696,7 +695,7 @@ var _ = Describe("Deployer", func() {
 			Expect(err).NotTo(HaveOccurred())
 			objsSlice = d.SetNamespaceAndOwner(gw, objsSlice)
 			objs := clientObjects(objsSlice)
-			bootstrapCfg := objs.getEnvoyConfig(defaultNamespace, "envoy-gateway")
+			bootstrapCfg := objs.getEnvoyConfig("envoy-gateway")
 			Expect(bootstrapCfg.GetStatsConfig()).ToNot(BeNil())
 			matcher := bootstrapCfg.GetStatsConfig().GetStatsMatcher()
 			Expect(matcher).ToNot(BeNil())
@@ -787,7 +786,7 @@ var _ = Describe("Deployer", func() {
 			Expect(err).NotTo(HaveOccurred())
 			objsSlice = d.SetNamespaceAndOwner(gw, objsSlice)
 			objs := clientObjects(objsSlice)
-			bootstrapCfg := objs.getEnvoyConfig(defaultNamespace, "envoy-gateway")
+			bootstrapCfg := objs.getEnvoyConfig("envoy-gateway")
 			Expect(bootstrapCfg.GetStatsConfig()).ToNot(BeNil())
 			matcher := bootstrapCfg.GetStatsConfig().GetStatsMatcher()
 			Expect(matcher).ToNot(BeNil())
@@ -853,7 +852,7 @@ var _ = Describe("Deployer", func() {
 			objsSlice = d.SetNamespaceAndOwner(gw, objsSlice)
 
 			objs := clientObjects(objsSlice)
-			bootstrapCfg := objs.getEnvoyConfig(defaultNamespace, "envoy-gateway")
+			bootstrapCfg := objs.getEnvoyConfig("envoy-gateway")
 
 			cdsConfig := bootstrapCfg.GetDynamicResources().GetCdsConfig()
 			Expect(cdsConfig).ToNot(BeNil())
@@ -963,7 +962,7 @@ var _ = Describe("Deployer", func() {
 			Expect(objs1).NotTo(BeEmpty())
 			Expect(objs1.findDeployment(gw1.Name)).ToNot(BeNil())
 			Expect(objs1.findService(gw1.Name)).ToNot(BeNil())
-			Expect(objs1.findConfigMap(defaultNamespace, gw1.Name)).ToNot(BeNil())
+			Expect(objs1.findConfigMap(gw1.Name)).ToNot(BeNil())
 			Expect(objs1.findServiceAccount(gw1.Name)).ToNot(BeNil())
 
 			objs2, err = d2.GetObjsToDeploy(context.Background(), gw2)
@@ -972,7 +971,7 @@ var _ = Describe("Deployer", func() {
 			Expect(objs2).NotTo(BeEmpty())
 			Expect(objs2.findDeployment(gw2.Name)).ToNot(BeNil())
 			Expect(objs2.findService(gw2.Name)).ToNot(BeNil())
-			Expect(objs2.findConfigMap(defaultNamespace, gw2.Name)).ToNot(BeNil())
+			Expect(objs2.findConfigMap(gw2.Name)).ToNot(BeNil())
 			Expect(objs2.findServiceAccount(gw2.Name)).ToNot(BeNil())
 
 			for _, obj := range objs1 {
@@ -1138,7 +1137,7 @@ var _ = Describe("Deployer", func() {
 				Expect(objs.findDeployment("foo")).NotTo(BeNil())
 				Expect(objs.findService("foo")).NotTo(BeNil())
 				Expect(objs.findServiceAccount("foo")).NotTo(BeNil())
-				Expect(objs.findConfigMap(defaultNamespace, "foo")).NotTo(BeNil())
+				Expect(objs.findConfigMap("foo")).NotTo(BeNil())
 
 				By("validating the default values are used")
 				Expect(objs.findDeployment("foo").Spec.Template.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("%s/%s:%s", registry, deployer.EnvoyWrapperImage, tag)))
@@ -1226,7 +1225,7 @@ var _ = Describe("Deployer", func() {
 				Expect(objs.findDeployment("foo")).NotTo(BeNil())
 				Expect(objs.findService("foo")).NotTo(BeNil())
 				Expect(objs.findServiceAccount("foo")).NotTo(BeNil())
-				Expect(objs.findConfigMap(defaultNamespace, "foo")).NotTo(BeNil())
+				Expect(objs.findConfigMap("foo")).NotTo(BeNil())
 
 				By("validating the image overrides the default")
 				Expect(objs.findDeployment("foo").Spec.Template.Spec.Containers[0].Image).To(Equal(fmt.Sprintf("bar/%s:2.3.4", deployer.EnvoyWrapperImage)))
@@ -1339,7 +1338,7 @@ var _ = Describe("Deployer", func() {
 				}
 				Expect(foundLogLevel).To(BeTrue(), "envoy proxy log level not found")
 
-				bootstrapCfg := objs.getEnvoyConfig(defaultNamespace, defaultConfigMapName)
+				bootstrapCfg := objs.getEnvoyConfig(defaultConfigMapName)
 				Expect(bootstrapCfg.StaticResources.Listeners).To(HaveLen(2))
 				prometheusListener := bootstrapCfg.StaticResources.Listeners[1]
 				port := prometheusListener.Address.GetSocketAddress().PortSpecifier.(*envoycorev3.SocketAddress_PortValue)
@@ -1685,7 +1684,7 @@ var _ = Describe("Deployer", func() {
 				Expect(sa.GetLabels()).ToNot(BeNil())
 				Expect(sa.GetLabels()).To(containMapElements(expectedGwp.ServiceAccount.ExtraLabels))
 
-				cm := objs.findConfigMap(defaultNamespace, defaultConfigMapName)
+				cm := objs.findConfigMap(defaultConfigMapName)
 				Expect(cm).ToNot(BeNil())
 				// This verifies that the cluster name provided to envoy matches the service name used when generating OTel stats
 				Expect(cm.Data[envoyDataKey]).To(ContainSubstring(fmt.Sprintf("cluster: %s", listenerpolicy.GenerateDefaultServiceName(dep.Name, dep.Namespace))))
@@ -1803,7 +1802,7 @@ var _ = Describe("Deployer", func() {
 			Expect(sa.GetLabels()).ToNot(BeNil())
 			Expect(sa.GetLabels()).To(containMapElements(expectedGwp.ServiceAccount.ExtraLabels))
 
-			cm := objs.findConfigMap(defaultNamespace, defaultConfigMapName)
+			cm := objs.findConfigMap(defaultConfigMapName)
 			Expect(cm).ToNot(BeNil())
 
 			logLevelsMap := expectedGwp.EnvoyContainer.Bootstrap.ComponentLogLevels
@@ -2131,7 +2130,7 @@ var _ = Describe("Deployer", func() {
 					gw := defaultGateway()
 					Expect(objs).NotTo(BeEmpty())
 
-					cm := objs.findConfigMap(defaultNamespace, defaultConfigMapName)
+					cm := objs.findConfigMap(defaultConfigMapName)
 					Expect(cm).NotTo(BeNil())
 
 					envoyYaml := cm.Data[envoyDataKey]
@@ -2174,7 +2173,7 @@ var _ = Describe("Deployer", func() {
 					gw := defaultGatewayWithGatewayParams(gwpOverrideName)
 					Expect(objs).NotTo(BeEmpty())
 
-					cm := objs.findConfigMap(defaultNamespace, defaultConfigMapName)
+					cm := objs.findConfigMap(defaultConfigMapName)
 					Expect(cm).NotTo(BeNil())
 
 					envoyYaml := cm.Data[envoyDataKey]
@@ -2362,7 +2361,7 @@ var _ = Describe("Deployer", func() {
 			objs = d.SetNamespaceAndOwner(gw, objs)
 
 			Expect(objs).To(HaveLen(4))
-			Expect(objs.findConfigMap(defaultNamespace, gw.Name)).ToNot(BeNil())
+			Expect(objs.findConfigMap(gw.Name)).ToNot(BeNil())
 			Expect(objs.findServiceAccount(gw.Name)).ToNot(BeNil())
 
 			servicePorts := objs.findService(gw.Name).Spec.Ports
