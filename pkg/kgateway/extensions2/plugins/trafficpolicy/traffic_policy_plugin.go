@@ -19,6 +19,7 @@ import (
 	envoyrbacv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	envoytlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoy_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+
 	// TODO(nfuden): remove once rustformations are able to be used in a production environment
 	transformationpb "github.com/solo-io/envoy-gloo/go/config/filter/http/transformation/v2"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -436,6 +437,16 @@ func (p *trafficPolicyPluginGwPass) HttpFilters(_ ir.HttpFiltersContext, fcc ir.
 		stagedFilters = append(stagedFilters, stagedExtProcFilter)
 	}
 
+	// Add Buffer filter to enable buffer for the listener.
+	// Requires the buffer policy to be set as typed_per_filter_config.
+	// This must run before transformation so request body limits are enforced
+	// prior to any transformation buffering behavior.
+	if f := p.bufferInChain[fcc.FilterChainName]; f != nil {
+		filter := filters.MustNewStagedFilter(bufferFilterName, f, filters.BeforeStage(filters.AcceptedStage))
+		filter.Filter.Disabled = true
+		stagedFilters = append(stagedFilters, filter)
+	}
+
 	// register classic transforms
 	if p.setTransformationInChain[fcc.FilterChainName] && !useRustformations {
 		// TODO(nfuden): support stages such as early
@@ -445,7 +456,7 @@ func (p *trafficPolicyPluginGwPass) HttpFilters(_ ir.HttpFiltersContext, fcc ir.
 		}
 		filter := filters.MustNewStagedFilter(transformationFilterNamePrefix,
 			&transformationCfg,
-			filters.BeforeStage(filters.AcceptedStage),
+			filters.DuringStage(filters.AcceptedStage),
 		)
 		filter.Filter.Disabled = true
 		stagedFilters = append(stagedFilters, filter)
@@ -467,7 +478,7 @@ func (p *trafficPolicyPluginGwPass) HttpFilters(_ ir.HttpFiltersContext, fcc ir.
 
 		rustFilter := filters.MustNewStagedFilter(rustformationFilterNamePrefix,
 			&rustCfg,
-			filters.BeforeStage(filters.AcceptedStage),
+			filters.DuringStage(filters.AcceptedStage),
 		)
 		rustFilter.Filter.Disabled = true
 		stagedFilters = append(stagedFilters, rustFilter)
@@ -582,14 +593,6 @@ func (p *trafficPolicyPluginGwPass) HttpFilters(_ ir.HttpFiltersContext, fcc ir.
 	// Add header mutation filter.
 	if f := p.headerMutationInChain[fcc.FilterChainName]; f != nil {
 		filter := filters.MustNewStagedFilter(headerMutationFilterName, f, filters.DuringStage(filters.RouteStage))
-		filter.Filter.Disabled = true
-		stagedFilters = append(stagedFilters, filter)
-	}
-
-	// Add Buffer filter to enable buffer for the listener.
-	// Requires the buffer policy to be set as typed_per_filter_config.
-	if f := p.bufferInChain[fcc.FilterChainName]; f != nil {
-		filter := filters.MustNewStagedFilter(bufferFilterName, f, filters.DuringStage(filters.RouteStage))
 		filter.Filter.Disabled = true
 		stagedFilters = append(stagedFilters, filter)
 	}

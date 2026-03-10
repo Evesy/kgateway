@@ -305,6 +305,17 @@ func TestBasic(t *testing.T) {
 			})
 	})
 
+	t.Run("TrafficPolicy buffer with transformation on XListenerSet route", func(t *testing.T) {
+		test(t, translatorTestCase{
+			inputFile:  "traffic-policy/buffer-with-transformation-xlistenerset.yaml",
+			outputFile: "traffic-policy/buffer-with-transformation-xlistenerset.yaml",
+			gwNN: types.NamespacedName{
+				Namespace: "default",
+				Name:      "example-gateway",
+			},
+		})
+	})
+
 	t.Run("TrafficPolicy gRPC ExtAuth different attachment points", func(t *testing.T) {
 		test(t, translatorTestCase{
 			inputFile:  "traffic-policy/extauth-grpc.yaml",
