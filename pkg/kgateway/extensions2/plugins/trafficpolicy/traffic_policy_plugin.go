@@ -436,10 +436,10 @@ func (p *trafficPolicyPluginGwPass) HttpFilters(_ ir.HttpFiltersContext, fcc ir.
 		stagedFilters = append(stagedFilters, stagedExtProcFilter)
 	}
 
-	// Add Buffer filter to enable buffer for the listener.
-	// Requires the buffer policy to be set as typed_per_filter_config.
-	// This must run before transformation so request body limits are enforced
-	// prior to any transformation buffering behavior.
+	// Register a Buffer filter at the listener level as a disabled placeholder.
+	// Per-route typed_per_filter_config is expected to enable and configure buffering.
+	// This filter must be staged before transformation so request body limits are enforced
+	// prior to any transformation-specific buffering behavior.
 	if f := p.bufferInChain[fcc.FilterChainName]; f != nil {
 		filter := filters.MustNewStagedFilter(bufferFilterName, f, filters.BeforeStage(filters.AcceptedStage))
 		filter.Filter.Disabled = true
