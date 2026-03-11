@@ -66,38 +66,83 @@ func TestBufferIREquals(t *testing.T) {
 }
 
 func TestBufferFilterRunsBeforeTransformation(t *testing.T) {
-	plugin := &trafficPolicyPluginGwPass{
-		setTransformationInChain: map[string]bool{
-			"test-filter-chain": true,
-		},
-		bufferInChain: map[string]*bufferv3.Buffer{
-			"test-filter-chain": {
-				MaxRequestBytes: &wrapperspb.UInt32Value{Value: 1024},
+	t.Run("classic transformation", func(t *testing.T) {
+		plugin := &trafficPolicyPluginGwPass{
+			setTransformationInChain: map[string]bool{
+				"test-filter-chain": true,
 			},
-		},
-	}
-
-	fcc := ir.FilterChainCommon{FilterChainName: "test-filter-chain"}
-	httpFilters, err := plugin.HttpFilters(ir.HttpFiltersContext{}, fcc)
-	require.NoError(t, err)
-
-	bufferIdx := -1
-	transformationIdx := -1
-	var bufferStage filters.FilterStage[filters.WellKnownFilterStage]
-	var transformationStage filters.FilterStage[filters.WellKnownFilterStage]
-	for i, stagedFilter := range httpFilters {
-		switch stagedFilter.Filter.GetName() {
-		case bufferFilterName:
-			bufferIdx = i
-			bufferStage = stagedFilter.Stage
-		case transformationFilterNamePrefix:
-			transformationIdx = i
-			transformationStage = stagedFilter.Stage
+			bufferInChain: map[string]*bufferv3.Buffer{
+				"test-filter-chain": {
+					MaxRequestBytes: &wrapperspb.UInt32Value{Value: 1024},
+				},
+			},
 		}
-	}
 
-	require.NotEqual(t, -1, bufferIdx, "buffer filter should be present in the chain")
-	require.NotEqual(t, -1, transformationIdx, "transformation filter should be present in the chain")
-	assert.Equal(t, -1, filters.FilterStageComparison(bufferStage, transformationStage), "buffer stage must be earlier than transformation stage")
-	assert.Less(t, bufferIdx, transformationIdx, "buffer filter must run before transformation")
+		fcc := ir.FilterChainCommon{FilterChainName: "test-filter-chain"}
+		httpFilters, err := plugin.HttpFilters(ir.HttpFiltersContext{}, fcc)
+		require.NoError(t, err)
+
+		bufferIdx := -1
+		transformationIdx := -1
+		var bufferStage filters.FilterStage[filters.WellKnownFilterStage]
+		var transformationStage filters.FilterStage[filters.WellKnownFilterStage]
+		for i, stagedFilter := range httpFilters {
+			switch stagedFilter.Filter.GetName() {
+			case bufferFilterName:
+				bufferIdx = i
+				bufferStage = stagedFilter.Stage
+			case transformationFilterNamePrefix:
+				transformationIdx = i
+				transformationStage = stagedFilter.Stage
+			}
+		}
+
+		require.NotEqual(t, -1, bufferIdx, "buffer filter should be present in the chain")
+		require.NotEqual(t, -1, transformationIdx, "transformation filter should be present in the chain")
+		assert.Equal(t, -1, filters.FilterStageComparison(bufferStage, transformationStage), "buffer stage must be earlier than transformation stage")
+		assert.Less(t, bufferIdx, transformationIdx, "buffer filter must run before transformation")
+	})
+
+	t.Run("rustformation", func(t *testing.T) {
+		previousUseRustformations := useRustformations
+		useRustformations = true
+		defer func() {
+			useRustformations = previousUseRustformations
+		}()
+
+		plugin := &trafficPolicyPluginGwPass{
+			setTransformationInChain: map[string]bool{
+				"test-filter-chain": true,
+			},
+			bufferInChain: map[string]*bufferv3.Buffer{
+				"test-filter-chain": {
+					MaxRequestBytes: &wrapperspb.UInt32Value{Value: 1024},
+				},
+			},
+		}
+
+		fcc := ir.FilterChainCommon{FilterChainName: "test-filter-chain"}
+		httpFilters, err := plugin.HttpFilters(ir.HttpFiltersContext{}, fcc)
+		require.NoError(t, err)
+
+		bufferIdx := -1
+		transformationIdx := -1
+		var bufferStage filters.FilterStage[filters.WellKnownFilterStage]
+		var transformationStage filters.FilterStage[filters.WellKnownFilterStage]
+		for i, stagedFilter := range httpFilters {
+			switch stagedFilter.Filter.GetName() {
+			case bufferFilterName:
+				bufferIdx = i
+				bufferStage = stagedFilter.Stage
+			case transformationFilterNamePrefix:
+				transformationIdx = i
+				transformationStage = stagedFilter.Stage
+			}
+		}
+
+		require.NotEqual(t, -1, bufferIdx, "buffer filter should be present in the chain")
+		require.NotEqual(t, -1, transformationIdx, "transformation filter should be present in the chain")
+		assert.Equal(t, -1, filters.FilterStageComparison(bufferStage, transformationStage), "buffer stage must be earlier than transformation stage")
+		assert.Less(t, bufferIdx, transformationIdx, "buffer filter must run before transformation/rustformation")
+	})
 }
